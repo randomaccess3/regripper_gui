@@ -1,5 +1,11 @@
 # Perl script to wrap regripper 2.8 in a GUI
 # Run from regripper folder
+# Please post all issues on Github for tracking
+# Phill Moore - randomaccess3@gmail.com
+
+#Versions
+# 0.01 - Initial Commit
+# 0.02 - added button for opening log, and enabled window resizing
 
 #INSTALL
 #This will work on Perl32bit, on 64bit you will need to compile the GUI libraries yourself, which I've had trouble with.
@@ -18,11 +24,7 @@ use strict;
 use File::Spec;
 use Cwd;
 
-#use Parse::Win32Registry qw(:REG_);
-#use Getopt::Long;
-
-
-my $VERSION = "0\.01";
+my $VERSION = "0\.02";
 my $TITLE = "RegRipper Runner";
 my %plugins = {};
 my $plugindir = File::Spec->catfile("plugins");
@@ -33,7 +35,8 @@ my @alerts = ();
 my $linesprinted = 0;
 my $printFlag = 0;
 
-
+my $DOS = Win32::GUI::GetPerlWindow();
+Win32::GUI::Hide($DOS);
 
 
 #=======================================================
@@ -43,9 +46,10 @@ my $printFlag = 0;
 #General
 my $buttonLength = 50;
 my $buttonHeight = 25;
-my $leftSideMargain = 40;
+my $leftSideMargin = 40;
 my $inputBox_Height = 22;
-
+my $bottomMargin = 115;
+my $rightSideMargin = 70;
 
 #View Plugin Window
 my $viewPlugin_Window_X 				= 40;
@@ -65,31 +69,31 @@ my $viewPlugin_pluginWindowTextField_Width	= 30;
 #Main Window
 my $main_Window_X 			= 0;
 my $main_Window_Y 			= 0;
-my $main_Window_MaxWidth 	= 1000;
-my $main_Window_MaxHeight 	= 700;
-my $main_Window_Width 		= $main_Window_MaxWidth;
-my $main_Window_Height 		= $main_Window_MaxHeight;
+my $main_Window_MinWidth 	= 1000;
+my $main_Window_MinHeight 	= 700;
+my $main_Window_Width 		= $main_Window_MinWidth;
+my $main_Window_Height 		= $main_Window_MinHeight;
 
 #Registry Box
 my $registryTextField_Y 			= 15;
-my $registryTextField_X 			= $leftSideMargain+90;
+my $registryTextField_X 			= $leftSideMargin+90;
 my $registryTextField_Width 		= 500;
 my $registryTextField_Height 		= $inputBox_Height;
 
 #Report Box
 my $reportTextField_Y 				= $registryTextField_Y+50;
-my $reportTextField_X 				= $leftSideMargain+90;
+my $reportTextField_X 				= $leftSideMargin+90;
 my $reportTextField_Width 			= $registryTextField_Width;
 my $reportTextField_Height 			= $inputBox_Height;
 
 #Output Text Field
-my $outputWindowTextField_Width 	= 475;
-my $outputWindowTextField_Height 	= 650;
 my $outputWindowTextField_X 		= 280;
 my $outputWindowTextField_Y 		= 110;
+my $outputWindowTextField_Width 	= $main_Window_Width - $rightSideMargin - $outputWindowTextField_X; #650;
+my $outputWindowTextField_Height 	= $main_Window_Height - $bottomMargin - $outputWindowTextField_Y; #475
 
 #Plugin List
-my $pluginList_X 					= $leftSideMargain;
+my $pluginList_X 					= $leftSideMargin;
 my $pluginList_Y 					= $outputWindowTextField_Y;
 my $pluginList_Width 				= 200;
 my $pluginList_Height 				= 300;
@@ -126,17 +130,22 @@ my $convertTimeCheckBox_X			= $userTextField_X+0;
 my $convertTimeCheckBox_Y			= $convertTimeCheckBox_Label_Y;
 
 #Buttons
-my $addToReportButton_X				= $leftSideMargain;
+my $addToReportButton_X				= $leftSideMargin;
 my $addToReportButton_Y				= $pluginList_Y + $pluginList_Height + 10;
 my $addToReportButton_Width			= $buttonLength;
 my $addToReportButton_Height		= $buttonHeight;
 
-my $browseRegistryButton_X 			= $leftSideMargain;
+my $openReportButton_X				= $addToReportButton_X+$buttonLength+20;
+my $openReportButton_Y				= $addToReportButton_Y;
+my $openReportButton_Width			= $buttonLength;
+my $openReportButton_Height			= $buttonHeight;
+
+my $browseRegistryButton_X 			= $leftSideMargin;
 my $browseRegistryButton_Y 			= $registryTextField_Y;
 my $browseRegistryButton_Width 		= $buttonLength;
 my $browseRegistryButton_Height 	= $buttonHeight;
 
-my $browseReportButton_X 			= $leftSideMargain;
+my $browseReportButton_X 			= $leftSideMargin;
 my $browseReportButton_Y 			= $reportTextField_Y;
 my $browseReportButton_Width 		= $buttonLength;
 my $browseReportButton_Height 		= $buttonHeight;
@@ -147,7 +156,7 @@ my $browseReportButton_Height 		= $buttonHeight;
 
 
 # ---------------------------------
-# Menu Bar
+# Window
 # ---------------------------------
 my $pwd = "explorer \"".cwd()."\"";
 #replace "/" with "\"
@@ -168,10 +177,11 @@ my $main = new Win32::GUI::Window (
     -title    => $TITLE." v.".$VERSION,
     -pos      => [$main_Window_X, $main_Window_Y],
 # Format: [width, height]
-    -maxsize  => [$main_Window_MaxWidth, $main_Window_MaxHeight],
+    -minsize  => [$main_Window_MinWidth, $main_Window_MinHeight],
     -size     => [$main_Window_Width, $main_Window_Height],
     -menu     => $menu,
     -dialogui => 1,
+	-onResize    => \&MainResize,
 ) or die "Could not create a new Window: $!\n";
 
 my $icon_file = "q\.ico";
@@ -186,7 +196,7 @@ $main->SetIcon($icon);
 my $outputWindow = $main->AddTextfield(
     -name      		=> "Report",
     -pos       		=> [$outputWindowTextField_X,$outputWindowTextField_Y],
-    -size      		=> [$outputWindowTextField_Height,$outputWindowTextField_Width],
+    -size      		=> [$outputWindowTextField_Width,$outputWindowTextField_Height],
     -multiline 		=> 1,
     -vscroll   		=> 1,
 	-hscroll   		=> 1,
@@ -270,6 +280,14 @@ my $addToReport = $main->AddButton(
 	-text => "+"
 	);
 
+my $openReport = $main->AddButton(
+	-name => 'openReport',
+	-pos	=> [$openReportButton_X, $openReportButton_Y],
+	-size	=> [$openReportButton_Width, $openReportButton_Height],
+	#-tabstop => 1,
+	-text => "O"
+	);
+	
 my $browse_registry = $main->AddButton(
 	-name => 'browse_registry',
 	-pos	=> [$browseRegistryButton_X, $browseRegistryButton_Y],
@@ -296,11 +314,33 @@ populatePluginsList();
 $main->Show();
 Win32::GUI::Dialog();
 
+Win32::GUI::Show($DOS);
+
+exit(0);
+
 
 #=======================================================
 # User Actions
 #=======================================================
 
+#resize the output textbox when the window is resized
+sub MainResize {	
+	my $x1 = $outputWindowTextField_X;
+	my $y1 = $outputWindowTextField_Y;
+	my $x2 = $main->Width - $rightSideMargin;
+	my $y2 = $main->Height - $bottomMargin;
+	
+	my $width = $x2 - $x1;
+	my $height = $y2 - $y1;
+	
+	$outputWindow->Width($width);
+	$outputWindow->Height($height);
+	
+	#Resize status bar;
+	$status->Move( 0, ($main->ScaleHeight() - $status->Height()) );	
+	$status->Resize( $main->Width(), $status->Height() );
+	
+}
 
 sub addToReport_Click{
 	#copy contents of report to $reportTab
@@ -311,7 +351,7 @@ sub addToReport_Click{
 	
 	my $outputfile = $reportLocation->Text();
 	my $text = $outputWindow->Text;
-
+		
 	$text =~ s/\n\n/\r\n/g;
 	open(FILE, '>>', $outputfile) or die "cannot open file $outputfile";
 	print FILE $text;	
@@ -319,6 +359,15 @@ sub addToReport_Click{
 	close(FILE);
 	$status->Text("Save complete"); 
 }
+
+sub openReport_Click{
+	if ($reportLocation->Text() eq ""){
+		$status->Text("No report file");
+		return;
+	}
+	system("notepad ".$reportLocation->Text());
+}
+
 
 sub browse_registry_Click {
   # Open a file
