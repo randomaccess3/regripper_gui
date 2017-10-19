@@ -6,6 +6,7 @@
 #Versions
 # 0.01 - Initial Commit
 # 0.02 - added button for opening log, and enabled window resizing
+# 0.021 - auto sort all tln plugin output
 
 #INSTALL
 #This will work on Perl32bit, on 64bit you will need to compile the GUI libraries yourself, which I've had trouble with.
@@ -24,7 +25,7 @@ use strict;
 use File::Spec;
 use Cwd;
 
-my $VERSION = "0\.02";
+my $VERSION = "0\.021";
 my $TITLE = "RegRipper Runner";
 my %plugins = {};
 my $plugindir = File::Spec->catfile("plugins");
@@ -36,7 +37,8 @@ my $linesprinted = 0;
 my $printFlag = 0;
 
 my $DOS = Win32::GUI::GetPerlWindow();
-Win32::GUI::Hide($DOS);
+
+#Win32::GUI::Hide($DOS);
 
 
 #=======================================================
@@ -544,6 +546,10 @@ sub runPluginRip($$){
 	
 	$printFlag = 0;
 	my $status_command = "perl rip.pl -r \"".$hive."\" -p ".$pluginSelected;
+	
+	#sort plugins if they end in _tln, as the date is a unix timestamp then this should sort by date/time. Also relies on tln time
+	$status_command = $status_command. " | sort" if ($pluginSelected =~ m/_tln$/);
+	
 	my $run_command = $status_command."> $outputFile";
 	$status->Text("Running command: ".$status_command);
 	$outputWindow->Append("Running command: ".$status_command);
