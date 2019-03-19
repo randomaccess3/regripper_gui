@@ -7,6 +7,7 @@
 # 0.01 - Initial Commit
 # 0.02 - added button for opening log, and enabled window resizing
 # 0.021 - auto sort all tln plugin output
+# 0.022 - added hive listing into the status bar
 
 #INSTALL
 #This will work on Perl32bit, on 64bit you will need to compile the GUI libraries yourself, which I've had trouble with.
@@ -18,6 +19,7 @@
  
 # Known Issues:
 # Tabbing currently hasn't been implemented
+# No error checking if shortdescription doesnt exist in the plugin it wont get displayed
 
 use Win32::GUI;
 use POSIX qw(strftime);
@@ -412,7 +414,7 @@ sub pluginList_SelChange {
 	#print $selection." - ". $plugins{$selection}{"description"}."-".$plugins{$selection}{"hive"}."\n";
 	
 	clearoutputWindow();
-	$status->Text($selection." - ". $plugins{$selection}{"description"}."\n");
+	$status->Text($selection." - ". $plugins{$selection}{"description"}. " - (". $plugins{$selection}{"hive"}.")\n");
 	
 	if ($regPath ne ""){		
 		if ($plugins{$selection}{"hive"} =~ m/[aA][lL][lL]/){
@@ -498,7 +500,7 @@ sub populatePluginsList {
 			require $p;
 			$plugins{$pkg}{"hive"} = $pkg->getHive();
 			$plugins{$pkg}{"version"} = $pkg->getVersion();
-			$plugins{$pkg}{"description"}   = $pkg->getShortDescr();
+			$plugins{$pkg}{"description"}   = $pkg->getShortDescr();	
 			$pluginList->InsertItem($pkg);
 		};
 		print "Error: $@\n" if ($@);
